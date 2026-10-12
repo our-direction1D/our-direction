@@ -1,5 +1,5 @@
 const KEY='ourDirectionV8';
-const ADMIN_EMAIL='admin@ourdirection.test';
+const ADMIN_EMAIL='aairatalwarprakash@gmail.com';
 const ADMIN_PASSWORD='admin123';
 
 const DEFAULTS={
