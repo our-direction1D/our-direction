@@ -1,3 +1,37 @@
+// Initialize Supabase
+const SUPABASE_URL = 'https://sqtvpilfhyssmombmsnv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nnZHtn1NxcNSJVzb5O6-qg_g0MQb8R_';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Example: Fetching live Fan Wall posts from the real database
+async function loadLiveWall() {
+  const { data, error } = await supabase
+    .from('wall_posts')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error loading posts:', error);
+    return;
+  }
+
+  // Render your posts dynamically onto the page
+  console.log('Live fan posts from Supabase:', data);
+}
+
+// Example: Submitting a new Fan Wall post to every fan on the internet
+async function sendFanPost(username, category, message, credit) {
+  const { data, error } = await supabase
+    .from('wall_posts')
+    .insert([{ username, category, message, credit }]);
+
+  if (error) {
+    alert('Failed to post: ' + error.message);
+  } else {
+    alert('Posted live to the Fan Wall!');
+    loadLiveWall(); // Reload wall live
+  }
+}
 const KEY='ourDirectionV8';
 const ADMIN_EMAIL='admin@ourdirection.test';
 const ADMIN_PASSWORD='admin123';
