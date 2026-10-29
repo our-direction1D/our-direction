@@ -1,4 +1,4 @@
-// Initialize Supabase (Only once)
+// Initialize Supabase
 const SUPABASE_URL = 'https://sqtvpilfhyssmombmsnv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nnZHtn1NxcNSJVzb5O6-qg_g0MQb8R_';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -88,6 +88,13 @@ function migrate() {
  if (!data.site) data.site = deepClone(DEFAULT_DATA.site);
  else Object.assign(data.site, deepClone(DEFAULT_DATA.site), data.site);
  if (!data.fun) data.fun = deepClone(DEFAULTS);
+ else {
+  data.fun.randomBits = data.fun.randomBits || deepClone(DEFAULTS.randomBits);
+  data.fun.jokes = data.fun.jokes || deepClone(DEFAULTS.jokes);
+  data.fun.challenges = data.fun.challenges || deepClone(DEFAULTS.challenges);
+  data.fun.thisOrThat = data.fun.thisOrThat || deepClone(DEFAULTS.thisOrThat);
+  data.fun.songGame = data.fun.songGame || deepClone(DEFAULTS.songGame);
+ }
  save();
 }
 
@@ -104,6 +111,15 @@ function toast(x) {
  t.classList.add('show');
  clearTimeout(window.__toast);
  window.__toast = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function incGame() {
+ const u = current();
+ if (u) { u.stats = u.stats || {}; u.stats.gamesPlayed = (u.stats.gamesPlayed || 0) + 1; }
+ data.gamesPlayed = (data.gamesPlayed || 0) + 1;
+ save();
+ renderStats();
+ renderCommunity();
 }
 
 function likeButton(item) {
@@ -172,7 +188,9 @@ function submissionCard(s, withDelete = false) {
  return `<article class="submission-card ${long ? 'long-post' : ''}">${mediaMarkup(s)}<div class="submission-body"><span class="tag">${esc(s.category)}</span><p class="post-text">${esc(s.text || '')}</p>${s.credit ? `<div class="media-credit"><b>Credit:</b> ${esc(s.credit)}</div>` : ''}<div class="post-meta"><div><div class="username">${esc(s.user)}</div><small>${esc(s.date || '')}</small></div>${likeButton(s)}</div>${withDelete ? `<button class="small own-delete" data-id="${esc(s.id)}">DELETE MY POST</button>` : ''}</div></article>`;
 }
 
-async function renderWall(filter = 'all') {
+let wallFilter = 'all';
+async function renderWall(filter = wallFilter) {
+ wallFilter = filter;
  const { data: posts, error } = await supabase.from('wall_posts').select('*').eq('status', 'approved').order('created_at', { ascending: false });
  if (error) { console.error('Error loading posts:', error); return; }
  
@@ -203,6 +221,28 @@ document.querySelectorAll('.filter').forEach(b => b.onclick = () => {
  b.classList.add('active');
  renderWall(b.dataset.filter);
 });
+
+const findMineBtn = document.getElementById('findMine');
+if (findMineBtn) {
+ findMineBtn.onclick = () => {
+  const u = current(), box = document.getElementById('wallMine');
+  if (!box) return;
+  if (!u) { box.innerHTML = '<div class="notice">Log in or sign up first and we can show every message you have posted.</div>'; return; }
+  const mine = data.submissions.filter(s => s.user === '@' + u.username);
+  box.innerHTML = `<div class="mine-box"><h2>YOUR MESSAGES</h2><p>${mine.length} submission(s) found. Like counts are shown; individual likers are never displayed.</p>${mine.length ? mine.map(s => submissionCard(s, true)).join('') : '<p>You have not posted anything yet.</p>'}</div>`;
+  box.querySelectorAll('.own-delete').forEach(btn => btn.onclick = () => {
+   const i = data.submissions.findIndex(s => s.id === btn.dataset.id);
+   if (i >= 0 && data.submissions[i].user === '@' + u.username) {
+    data.submissions.splice(i, 1);
+    save();
+    toast('Your post was deleted.');
+    findMineBtn.click();
+    renderWall();
+   }
+  });
+  bindLikes();
+ };
+}
 
 async function renderFacts() {
  const { data: facts, error } = await supabase.from('facts').select('*').eq('status', 'approved').order('created_at', { ascending: false });
@@ -353,7 +393,83 @@ function pollMarkup(target) {
  });
 }
 function renderPoll() { pollMarkup('pollArea'); }
-function renderHomePollFact() { pollMarkup('homePoll'); }
+function renderHomePollFact() {
+ pollMarkup('homePoll');
+ const fs = data.facts.filter(x => x.status === 'approved');
+ const hFact = document.getElementById('homeFact');
+ if (hFact) hFact.textContent = fs[Math.floor(Math.random() * fs.length)]?.text || 'More facts coming soon.';
+}
+
+let totIndex = 0, songIndex = 0, songClue = 0;
+function nextTot() {
+ const qs = data.fun?.thisOrThat || [];
+ if (!qs.length) return;
+ const q = qs[totIndex % qs.length];
+ const qEl = document.getElementById('totQuestion');
+ if (qEl) qEl.textContent = `${q[0]} OR ${q[1]}?`;
+ document.querySelectorAll('.choice').forEach((b, i) => b.textContent = q[i]);
+}
+
+function resetSong() {
+ const games = data.fun?.songGame || [];
+ if (!games.length) return;
+ songIndex = Math.floor(Math.random() * games.length);
+ songClue = 0;
+ const cEl = document.getElementById('songClue');
+ const rEl = document.getElementById('songResult');
+ const gEl = document.getElementById('songGuess');
+ if (cEl) cEl.textContent = 'Clue 1: ' + games[songIndex].clues[0];
+ if (rEl) rEl.textContent = '';
+ if (gEl) gEl.value = '';
+}
+
+const njBtn = document.getElementById('newJoke');
+if (njBtn) njBtn.onclick = () => { const j = document.getElementById('joke'); if (j) j.textContent = (data.fun.jokes || [])[Math.floor(Math.random() * (data.fun.jokes || []).length)] || 'No joke loaded.'; };
+
+const rbBtn = document.getElementById('randomBtn');
+if (rbBtn) rbBtn.onclick = () => { const r = document.getElementById('randomResult'); if (r) r.textContent = (data.fun.randomBits || [])[Math.floor(Math.random() * (data.fun.randomBits || []).length)] || 'The chaos cupboard is empty.'; incGame(); };
+
+document.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+ const qs = data.fun.thisOrThat || [];
+ const q = qs[totIndex % qs.length];
+ const res = document.getElementById('totResult');
+ if (res) res.textContent = `You chose ${b.textContent}. The extremely scientific community result is: ${Math.floor(55 + Math.random() * 31)}% agree.`;
+ incGame();
+ totIndex++;
+ nextTot();
+});
+
+const scBtn = document.getElementById('songClueBtn');
+if (scBtn) scBtn.onclick = () => {
+ const games = data.fun.songGame || [];
+ if (!games.length) return;
+ songClue = Math.min(songClue + 1, games[songIndex].clues.length - 1);
+ const cEl = document.getElementById('songClue');
+ if (cEl) cEl.textContent = 'Clue ' + (songClue + 1) + ': ' + games[songIndex].clues[songClue];
+};
+
+const sgBtn = document.getElementById('songGuessBtn');
+if (sgBtn) sgBtn.onclick = () => {
+ const games = data.fun.songGame || [];
+ if (!games.length) return;
+ const g = (document.getElementById('songGuess')?.value || '').trim().toLowerCase();
+ const a = games[songIndex].answer.toLowerCase();
+ const rEl = document.getElementById('songResult');
+ if (g === a) {
+  if (rEl) rEl.textContent = 'CORRECT. You are annoyingly good at this. 🎯';
+  incGame();
+  setTimeout(resetSong, 500);
+ } else {
+  if (rEl) rEl.textContent = 'Nope. Try again or use another clue.';
+ }
+};
+
+const ncBtn = document.getElementById('newChallenge');
+if (ncBtn) ncBtn.onclick = () => {
+ const arr = data.fun.challenges || [];
+ const ct = document.getElementById('challengeText');
+ if (ct) ct.textContent = arr[Math.floor(Math.random() * arr.length)] || 'No challenge loaded.';
+};
 
 function renderStats() {
  const u = document.getElementById('statUsers');
@@ -366,35 +482,219 @@ function renderStats() {
  if (g) g.textContent = data.gamesPlayed || 0;
 }
 
-function renderCommunity() {
- const box = document.getElementById('communityArea');
+let quizFilter = 'all';
+function renderQuizList(diff = quizFilter) {
+ quizFilter = diff;
+ const list = data.quizzes.filter(q => q.status === 'approved' && (diff === 'all' || q.difficulty === diff));
+ const qList = document.getElementById('quizList');
+ if (qList) {
+  qList.innerHTML = list.map(q => `<article class="quiz-card"><span class="tag">${esc(q.difficulty)}</span><small>${esc(q.category)} · ${q.plays || 0} plays · ${q.questions.length} questions</small><h2>${esc(q.title)}</h2><p>${esc(q.description || '')}</p><b>BY ${esc(q.creator)}</b><button class="btn red take-quiz" data-id="${esc(q.id)}">TAKE QUIZ →</button></article>`).join('') || '<div class="empty">No quizzes in that category yet.</div>';
+ }
+ document.querySelectorAll('.take-quiz').forEach(b => b.onclick = () => runQuiz(b.dataset.id));
+}
+
+document.querySelectorAll('.quiz-filter').forEach(b => b.onclick = () => {
+ document.querySelectorAll('.quiz-filter').forEach(x => x.classList.remove('active'));
+ b.classList.add('active');
+ renderQuizList(b.dataset.diff);
+});
+
+function runQuiz(id) {
+ const q = data.quizzes.find(x => x.id === id);
+ if (!q || !q.questions.length) return toast('This quiz has no questions yet.');
+ const wrap = document.getElementById('quizRunner');
+ if (!wrap) return;
+ wrap.innerHTML = `<div class="modal"><button class="close" id="closeQuiz">×</button><small>${esc(q.difficulty)} · ${esc(q.category)} · ${q.questions.length} questions</small><h2>${esc(q.title)}</h2><form id="quizForm">${q.questions.map((x, i) => `<fieldset><legend>${i + 1}. ${esc(x.q)}</legend>${x.choices.map((c, j) => `<label class="quiz-choice"><input type="radio" name="q${i}" value="${j}" required>${esc(c)}</label>`).join('')}</fieldset>`).join('')}<button class="btn red">FINISH QUIZ</button></form><div id="quizScore"></div></div>`;
+ wrap.classList.add('show');
+ document.getElementById('closeQuiz').onclick = () => wrap.classList.remove('show');
+ document.getElementById('quizForm').onsubmit = e => {
+  e.preventDefault();
+  let score = 0;
+  q.questions.forEach((x, i) => { if (Number(new FormData(e.target).get('q' + i)) === x.answer) score++; });
+  q.plays = (q.plays || 0) + 1;
+  const u = current();
+  if (u) { u.stats = u.stats || {}; u.stats.quizPlays = (u.stats.quizPlays || 0) + 1; }
+  incGame();
+  const pct = Math.round(score / q.questions.length * 100);
+  const msg = pct === 100 ? 'CERTIFIED DIRECTIONER.' : 'Solid effort. The rabbit hole goes deeper.';
+  document.getElementById('quizScore').innerHTML = `<div class="score-card"><strong>${score}/${q.questions.length}</strong><p>${pct}% — ${msg}</p>${q.questions.map((x, i) => `<p><b>${i + 1}.</b> Correct answer: ${esc(x.choices[x.answer])}. ${esc(x.explain || '')}</p>`).join('')}<button type="button" class="btn white" id="closeScore">BACK TO QUIZZES</button></div>`;
+  document.getElementById('closeScore').onclick = () => wrap.classList.remove('show');
+  renderQuizList();
+ };
+}
+
+function renderQuizMaker() {
+ const box = document.getElementById('quizMaker'), u = current();
  if (!box) return;
- const u = current();
- if (!u) { box.innerHTML = '<div class="community-landing section"><article class="home-card"><h2>JOIN THE COMMUNITY</h2><a class="btn red" href="#signup">SIGN UP</a> <a class="btn white" href="#login">LOG IN</a></article></div>'; return; }
- box.innerHTML = `<div class="profile-layout section"><aside class="profile-card"><h2>@${esc(u.username)}</h2></aside><div class="profile-main"><h2>WELCOME BACK</h2></div></div>`;
+ if (!u) { box.innerHTML = '<h2>WANT TO MAKE A QUIZ?</h2><p>Sign up first. Community quizzes go live immediately. Admins can still edit or delete them.</p><a class="btn red" href="#signup">JOIN TO CREATE</a>'; return; }
+ box.innerHTML = `<h2>CREATE A QUIZ</h2><p>Build as many questions as you want, with as many multiple-choice options as you need. Quizzes go live immediately.</p><form id="quizMakerForm"><label>Title<input id="qTitle" maxlength="80" required placeholder="e.g. How Well Do You Know FOUR?"></label><label>Description<input id="qDesc" maxlength="180" placeholder="What is this quiz about?"></label><div class="editor-grid"><label>Category<select id="qCat"><option>Songs</option><option>Albums</option><option>Members</option><option>1D History</option><option>Performances</option><option>Music Videos</option><option>Trivia</option><option>Fandom</option><option>Hard/Expert</option></select></label><label>Difficulty<select id="qDiff"><option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option></select></label></div><div id="makerQuestions"></div><button type="button" class="small" id="addQuestion">+ ADD ANOTHER QUESTION</button><button type="submit" class="btn red">POST QUIZ NOW →</button></form>`;
+ const qbox = document.getElementById('makerQuestions');
+ function addQuestion(q = { q: '', choices: ['', '', '', ''], answer: 0, explain: '' }) {
+  const idx = qbox.children.length;
+  const el = document.createElement('div');
+  el.className = 'question-builder';
+  el.innerHTML = `<div class="builder-head"><h3>QUESTION ${idx + 1}</h3><button type="button" class="small remove-question">REMOVE</button></div><label>Question<input class="qb-question" required value="${esc(q.q)}" placeholder="Write the question..."></label><div class="option-builder">${q.choices.map((c, j) => `<label>Option ${j + 1}<input class="qb-choice" value="${esc(c)}" required></label>`).join('')}</div><button type="button" class="small add-option">+ ADD OPTION</button><label>Correct option<select class="qb-answer">${q.choices.map((c, j) => `<option value="${j}" ${j === q.answer ? 'selected' : ''}>Option ${j + 1}</option>`).join('')}</select></label><label>Explanation<input class="qb-explain" maxlength="240" value="${esc(q.explain || '')}" placeholder="Optional explanation"></label>`;
+  qbox.appendChild(el);
+  el.querySelector('.remove-question').onclick = () => { if (qbox.children.length <= 1) return toast('Keep at least one question.'); el.remove(); renumberQuestionBuilders(); };
+  el.querySelector('.add-option').onclick = () => {
+   const options = el.querySelector('.option-builder');
+   const n = options.children.length + 1;
+   if (n > 12) return toast('Keep quizzes to 12 options per question.');
+   const lab = document.createElement('label');
+   lab.innerHTML = `Option ${n}<input class="qb-choice" required>`;
+   options.appendChild(lab);
+   updateAnswerSelect(el);
+  };
+  el.querySelectorAll('.qb-choice').forEach(i => i.addEventListener('input', () => updateAnswerSelect(el)));
+  updateAnswerSelect(el);
+ }
+ function updateAnswerSelect(el) {
+  const sel = el.querySelector('.qb-answer'), n = el.querySelectorAll('.qb-choice').length, old = Number(sel.value);
+  sel.innerHTML = Array.from({ length: n }, (_, j) => `<option value="${j}">Option ${j + 1}</option>`).join('');
+  sel.value = String(Math.min(old, n - 1));
+ }
+ function renumberQuestionBuilders() { qbox.querySelectorAll('.question-builder').forEach((el, i) => el.querySelector('h3').textContent = `QUESTION ${i + 1}`); }
+ addQuestion();
+ document.getElementById('addQuestion').onclick = () => addQuestion();
+ document.getElementById('quizMakerForm').onsubmit = e => {
+  e.preventDefault();
+  const questions = [...qbox.querySelectorAll('.question-builder')].map(el => ({
+   q: el.querySelector('.qb-question').value.trim(),
+   choices: [...el.querySelectorAll('.qb-choice')].map(x => x.value.trim()).filter(Boolean),
+   answer: Number(el.querySelector('.qb-answer').value),
+   explain: el.querySelector('.qb-explain').value.trim()
+  }));
+  if (questions.some(q => q.choices.length < 2)) return toast('Each question needs at least two options.');
+  data.quizzes.unshift({ id: uid('q'), title: document.getElementById('qTitle').value.trim(), description: document.getElementById('qDesc').value.trim(), category: document.getElementById('qCat').value, difficulty: document.getElementById('qDiff').value, plays: 0, creator: '@' + u.username, status: 'approved', questions });
+  save();
+  toast('Quiz posted!');
+  e.target.reset();
+  location.hash = 'quizzes';
+ };
+}
+
+function renderCommunity() {
+ const box = document.getElementById('communityArea'), u = current();
+ if (!box) return;
+ if (!u) { box.innerHTML = '<div class="community-landing section"><article class="home-card"><h2>JOIN THE COMMUNITY</h2><p>Pick a username, build badges, make quizzes, post memories and become part of the chaos.</p><a class="btn red" href="#signup">SIGN UP</a> <a class="btn white" href="#login">LOG IN</a></article></div>'; return; }
+ u.stats = u.stats || { gamesPlayed: 0, quizPlays: 0 };
+ const posts = data.submissions.filter(x => x.user === '@' + u.username), quizzes = data.quizzes.filter(x => x.creator === '@' + u.username), facts = data.facts.filter(x => x.user === '@' + u.username), updates = data.updates.filter(x => x.user === '@' + u.username), badges = [];
+ if (posts.length >= 1) badges.push('FIRST MESSAGE');
+ if (posts.length >= 5) badges.push('WALL REGULAR');
+ if (quizzes.length >= 1) badges.push('QUIZ CREATOR');
+ if (u.stats.gamesPlayed >= 5) badges.push('CHAOS PARTICIPANT');
+ const pending = [...posts, ...facts, ...updates].filter(x => x.status === 'pending').length;
+ box.innerHTML = `<div class="profile-layout section"><aside class="profile-card"><div class="avatar">${esc(u.username[0]?.toUpperCase() || 'D')}</div><h2>@${esc(u.username)}</h2><p>Certified Directioner in training.</p><div class="badges">${badges.length ? badges.map(b => `<span>${esc(b)}</span>`).join('') : '<small>Your first badge is waiting for you.</small>'}</div><div class="profile-note">Likes on your posts are anonymous: you see the number, never the names.</div></aside><div class="profile-main"><div class="stats-cards"><div><b>${posts.length}</b><span>wall messages</span></div><div><b>${quizzes.length}</b><span>quizzes made</span></div><div><b>${u.stats.gamesPlayed}</b><span>games played</span></div><div><b>${u.stats.quizPlays}</b><span>quiz plays</span></div></div><div class="home-card"><small>ACTIVITY</small><h2>YOUR DIRECTIONER TRAIL</h2><p>Games played counts only completed games/quiz attempts.</p><p>Posts: ${posts.length} · Facts: ${facts.length} · Updates: ${updates.length} · Pending contributions: ${pending}</p></div><div class="home-card"><small>YOUR FAN WALL POSTS</small><div class="account-posts">${posts.length ? posts.map(s => submissionCard(s)).join('') : '<p>You have not posted to the Fan Wall yet.</p>'}</div></div></div></div>`;
+ bindLikes();
+}
+
+function adminButtons(kind, x) {
+ const base = '<div class="admin-actions">';
+ if (kind === 'quiz') return base + `<button class="edit" onclick="adminEdit('${kind}','${x.id}')">EDIT</button><button class="delete" onclick="adminDelete('${kind}','${x.id}')">DELETE</button></div>`;
+ let b = '';
+ if (x.status === 'pending') b += `<button class="approve" onclick="adminStatus('${kind}','${x.id}','approved')">APPROVE</button><button class="reject" onclick="adminStatus('${kind}','${x.id}','rejected')">REJECT</button>`;
+ if (x.status === 'rejected') b += `<button class="approve" onclick="adminStatus('${kind}','${x.id}','approved')">APPROVE</button>`;
+ b += `<button class="edit" onclick="adminEdit('${kind}','${x.id}')">EDIT</button><button class="delete" onclick="adminDelete('${kind}','${x.id}')">DELETE</button>`;
+ return base + b + '</div>';
+}
+
+function collectionFor(kind) { return kind === 'submission' ? 'submissions' : kind === 'fact' ? 'facts' : kind === 'update' ? 'updates' : 'quizzes'; }
+
+function adminStatus(kind, id, status) {
+ if (!current()?.admin) return;
+ const x = data[collectionFor(kind)].find(v => v.id === id);
+ if (!x) return;
+ x.status = status;
+ save();
+ toast(status === 'approved' ? 'Approved.' : 'Rejected.');
+ render();
+ renderAdmin();
+}
+
+function adminDelete(kind, id) {
+ if (!current()?.admin) return;
+ const arr = data[collectionFor(kind)], i = arr.findIndex(v => v.id === id);
+ if (i < 0) return;
+ if (!confirm('Delete this content permanently?')) return;
+ arr.splice(i, 1);
+ save();
+ toast('Deleted.');
+ render();
+ renderAdmin();
+}
+
+function adminEdit(kind, id) {
+ if (!current()?.admin) return;
+ const arr = data[collectionFor(kind)], x = arr.find(v => v.id === id);
+ if (!x) return;
+ if (kind === 'submission') {
+  x.category = prompt('Category:', x.category) || x.category;
+  x.text = prompt('Post text:', x.text || '') ?? x.text;
+  x.credit = prompt('Credits / source:', x.credit || '') ?? x.credit;
+ } else if (kind === 'fact') {
+  x.category = prompt('Category:', x.category) || x.category;
+  x.text = prompt('Fact:', x.text) || x.text;
+  x.source = prompt('Source:', x.source) || x.source;
+ } else if (kind === 'update') {
+  x.title = prompt('Update title:', x.title) || x.title;
+  x.body = prompt('Update body:', x.body) || x.body;
+ }
+ save();
+ toast('Edited and saved.');
+ render();
+ renderAdmin();
 }
 
 function renderAdmin() {
- const box = document.getElementById('adminArea');
+ const box = document.getElementById('adminArea'), u = current();
  if (!box) return;
- const u = current();
  if (!u?.admin) { box.innerHTML = '<div class="empty">This area is private.</div>'; return; }
- box.innerHTML = `<div class="admin-box"><h2>ADMIN CONTROL ROOM</h2><p>Manage posts, facts, and updates directly in your Supabase Dashboard table editor!</p></div>`;
+ const ps = data.submissions.filter(x => x.status === 'pending'), pf = data.facts.filter(x => x.status === 'pending'), pu = data.updates.filter(x => x.status === 'pending');
+ box.innerHTML = `<div class="admin-box"><div class="notice"><b>ADMIN CONTROL ROOM:</b> Wall posts, facts and updates go through moderation before publication.</div><div class="admin-top"><div class="stat"><small>PENDING POSTS</small><strong>${ps.length}</strong></div><div class="stat"><small>PENDING FACTS</small><strong>${pf.length}</strong></div><div class="stat"><small>PENDING UPDATES</small><strong>${pu.length}</strong></div><div class="stat"><small>USERS</small><strong>${data.users.length}</strong></div></div><div id="adminSection"></div></div>`;
 }
 
 function render() {
  renderNav();
+ if (document.getElementById('heroSlogan')) document.getElementById('heroSlogan').textContent = data.site.slogan;
+ if (document.getElementById('heroCopy')) document.getElementById('heroCopy').textContent = data.site.copy;
+ if (document.getElementById('featuredQuote')) document.getElementById('featuredQuote').textContent = data.site.quote;
+ if (document.getElementById('joke')) document.getElementById('joke').textContent = (data.fun.jokes || [])[Math.floor(Math.random() * (data.fun.jokes || []).length)] || 'Loading extremely important research...';
+ 
+ const setP = (sel, txt) => { const el = document.querySelector(sel); if (el) el.textContent = txt; };
+ setP('#wall .page-head p', data.site.wallIntro);
+ setP('#fun .page-head p', data.site.funIntro);
+ setP('#quizzes .page-head p', data.site.quizIntro);
+ setP('#facts .page-head p', data.site.factsIntro);
+ setP('#updates .page-head p', data.site.updatesIntro);
+ setP('#community .page-head p', data.site.communityIntro);
+ setP('#submit .page-head p', data.site.submitIntro);
+ setP('#rules .page-head p', data.site.rulesIntro);
+ setP('footer span:nth-child(1)', data.site.footer1);
+ setP('footer span:nth-child(2)', data.site.footer2);
+ setP('footer span:nth-child(3) a:first-child', data.site.footer3);
+
  renderWall();
  renderFacts();
  renderSubmit();
+ renderAccount();
  renderUpdates();
  renderPoll();
  renderHomePollFact();
  renderStats();
+ renderQuizList();
+ renderQuizMaker();
  renderCommunity();
  renderAdmin();
+ nextTot();
+ if (document.getElementById('songGuess') && !document.getElementById('songGuess').value && !document.getElementById('songResult').textContent) {
+  resetSong();
+ }
 }
 
-// Run when the page loads and whenever the hash changes
-window.addEventListener('DOMContentLoaded', go);
-window.addEventListener('hashchange', go);
+function renderAccount() {
+ const box = document.getElementById('accountArea');
+ if (box) box.innerHTML = '<div class="empty">Your main account activity is now in the Community page.</div>';
+}
+
+// Run immediately when loaded
+go();
