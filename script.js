@@ -1,7 +1,7 @@
 // Initialize Supabase
 const SUPABASE_URL = 'https://sqtvpilfhyssmombmsnv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nnZHtn1NxcNSJVzb5O6-qg_g0MQb8R_';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Example: Fetching live Fan Wall posts from the real database
 async function loadLiveWall() {
