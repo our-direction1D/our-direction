@@ -673,28 +673,7 @@ function render() {
  setP('footer span:nth-child(2)', data.site.footer2);
  setP('footer span:nth-child(3) a:first-child', data.site.footer3);
 
- renderWall();
- renderFacts();
- renderSubmit();
- renderAccount();
- renderUpdates();
- renderPoll();
- renderHomePollFact();
- renderStats();
- renderQuizList();
- renderQuizMaker();
- renderCommunity();
- renderAdmin();
- nextTot();
- if (document.getElementById('songGuess') && !document.getElementById('songGuess').value && !document.getElementById('songResult').textContent) {
-  resetSong();
- }
-}
+function render(){renderNav();document.getElementById('heroSlogan').textContent=data.site.slogan;document.getElementById('heroCopy').textContent=data.site.copy;document.getElementById('featuredQuote').textContent=data.site.quote;document.getElementById('joke').textContent=(data.fun.jokes||[])[Math.floor(Math.random()*(data.fun.jokes||[]).length)]||'Loading extremely important research...';document.querySelector('#wall .page-head p').textContent=data.site.wallIntro;document.querySelector('#fun .page-head p').textContent=data.site.funIntro;document.querySelector('#quizzes .page-head p').textContent=data.site.quizIntro;document.querySelector('#facts .page-head p').textContent=data.site.factsIntro;document.querySelector('#updates .page-head p').textContent=data.site.updatesIntro;document.querySelector('#community .page-head p').textContent=data.site.communityIntro;document.querySelector('#submit .page-head p').textContent=data.site.submitIntro;document.querySelector('#rules .page-head p').textContent=data.site.rulesIntro;document.querySelector('footer span:nth-child(1)').textContent=data.site.footer1;document.querySelector('footer span:nth-child(2)').textContent=data.site.footer2;document.querySelector('footer span:nth-child(3) a:first-child').textContent=data.site.footer3;renderWall();renderFacts();renderSubmit();renderAccount();renderUpdates();renderPoll();renderHomePollFact();renderStats();renderQuizList();renderQuizMaker();renderCommunity();renderAdmin();nextTot();if(!document.getElementById('songGuess').value&&!document.getElementById('songResult').textContent)resetSong()}
+function renderAccount(){document.getElementById('accountArea').innerHTML='<div class="empty">Your main account activity is now in the Community page.</div>'}
 
-function renderAccount() {
- const box = document.getElementById('accountArea');
- if (box) box.innerHTML = '<div class="empty">Your main account activity is now in the Community page.</div>';
-}
-
-// Run immediately when loaded
 go();
