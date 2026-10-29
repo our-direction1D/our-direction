@@ -1,4 +1,4 @@
-// Initialize Supabase (ONLY ONCE)
+// Initialize Supabase (Only once)
 const SUPABASE_URL = 'https://sqtvpilfhyssmombmsnv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nnZHtn1NxcNSJVzb5O6-qg_g0MQb8R_';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -99,19 +99,11 @@ function uid(prefix = 'x') { return prefix + Date.now().toString(36) + Math.rand
 function current() { return data.users.find(u => u.id === data.currentUser); }
 function toast(x) {
  const t = document.getElementById('toast');
+ if (!t) return;
  t.textContent = x;
  t.classList.add('show');
  clearTimeout(window.__toast);
  window.__toast = setTimeout(() => t.classList.remove('show'), 2600);
-}
-
-function incGame() {
- const u = current();
- if (u) { u.stats = u.stats || {}; u.stats.gamesPlayed = (u.stats.gamesPlayed || 0) + 1; }
- data.gamesPlayed = (data.gamesPlayed || 0) + 1;
- save();
- renderStats();
- renderCommunity();
 }
 
 function likeButton(item) {
@@ -133,7 +125,6 @@ function bindLikes() {
   if (i >= 0) item.likedBy.splice(i, 1); else item.likedBy.push(u.id);
   item.likes = item.likedBy.length;
   
-  // Update Supabase
   await supabase.from('wall_posts').update({ likes: item.likes, liked_by: item.likedBy }).eq('id', id);
   renderWall();
   renderCommunity();
@@ -146,16 +137,25 @@ function go() {
  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === id));
  render();
  window.scrollTo(0, 0);
- if (window.innerWidth <= 850) document.getElementById('nav').style.display = '';
+ if (window.innerWidth <= 850) {
+  const nav = document.getElementById('nav');
+  if (nav) nav.style.display = '';
+ }
 }
 window.addEventListener('hashchange', go);
-document.getElementById('menuBtn').onclick = () => {
- const n = document.getElementById('nav');
- n.style.display = n.style.display === 'flex' ? '' : 'flex';
-};
+
+const menuBtn = document.getElementById('menuBtn');
+if (menuBtn) {
+ menuBtn.onclick = () => {
+  const n = document.getElementById('nav');
+  if (n) n.style.display = n.style.display === 'flex' ? '' : 'flex';
+ };
+}
 
 function renderNav() {
- const a = document.getElementById('authNav'), u = current();
+ const a = document.getElementById('authNav');
+ if (!a) return;
+ const u = current();
  a.innerHTML = u ? `<a href="#community">@${esc(u.username)}</a>${u.admin ? '<a href="#admin">CONTROL ROOM</a>' : ''}<a href="#" id="logout">LOG OUT</a>` : '<a href="#login">LOG IN</a><a href="#signup" class="join-link">JOIN</a>';
  const l = document.getElementById('logout');
  if (l) l.onclick = e => { e.preventDefault(); data.currentUser = null; save(); toast('Logged out.'); location.hash = 'home'; };
@@ -172,12 +172,11 @@ function submissionCard(s, withDelete = false) {
  return `<article class="submission-card ${long ? 'long-post' : ''}">${mediaMarkup(s)}<div class="submission-body"><span class="tag">${esc(s.category)}</span><p class="post-text">${esc(s.text || '')}</p>${s.credit ? `<div class="media-credit"><b>Credit:</b> ${esc(s.credit)}</div>` : ''}<div class="post-meta"><div><div class="username">${esc(s.user)}</div><small>${esc(s.date || '')}</small></div>${likeButton(s)}</div>${withDelete ? `<button class="small own-delete" data-id="${esc(s.id)}">DELETE MY POST</button>` : ''}</div></article>`;
 }
 
-// FETCH LIVE WALL POSTS FROM SUPABASE
 async function renderWall(filter = 'all') {
  const { data: posts, error } = await supabase.from('wall_posts').select('*').eq('status', 'approved').order('created_at', { ascending: false });
  if (error) { console.error('Error loading posts:', error); return; }
  
- data.submissions = posts.map(p => ({
+ data.submissions = (posts || []).map(p => ({
   id: p.id,
   user: p.user_name || p.username,
   category: p.category,
@@ -192,8 +191,10 @@ async function renderWall(filter = 'all') {
  }));
 
  const list = data.submissions.filter(s => filter === 'all' || s.category === filter);
- document.getElementById('wallSubmissions').innerHTML = list.length ? list.map(submissionCard).join('') : '<div class="empty">Nothing here yet. Add yours!</div>';
- document.getElementById('homeSubmissions').innerHTML = list.slice(0, 3).map(submissionCard).join('') || '<div class="empty">The wall is waiting for you.</div>';
+ const wallSub = document.getElementById('wallSubmissions');
+ const homeSub = document.getElementById('homeSubmissions');
+ if (wallSub) wallSub.innerHTML = list.length ? list.map(submissionCard).join('') : '<div class="empty">Nothing here yet. Add yours!</div>';
+ if (homeSub) homeSub.innerHTML = list.slice(0, 3).map(submissionCard).join('') || '<div class="empty">The wall is waiting for you.</div>';
  bindLikes();
 }
 
@@ -203,32 +204,33 @@ document.querySelectorAll('.filter').forEach(b => b.onclick = () => {
  renderWall(b.dataset.filter);
 });
 
-// FETCH LIVE FACTS FROM SUPABASE
 async function renderFacts() {
  const { data: facts, error } = await supabase.from('facts').select('*').eq('status', 'approved').order('created_at', { ascending: false });
  if (error) { console.error('Error loading facts:', error); return; }
- data.facts = facts.map(f => ({ id: f.id, user: f.user_name, category: f.category, text: f.text, source: f.source, status: f.status }));
- document.getElementById('factsList').innerHTML = data.facts.map(f => `<article class="fact-card"><span class="tag">${esc(f.category)}</span><h3>DID YOU KNOW?</h3><p>${esc(f.text)}</p><div class="fact-source"><b>Source:</b> ${esc(f.source)}<br><b>Submitted by:</b> ${esc(f.user)}</div></article>`).join('') || '<div class="empty">No facts yet.</div>';
+ data.facts = (facts || []).map(f => ({ id: f.id, user: f.user_name, category: f.category, text: f.text, source: f.source, status: f.status }));
+ const factsList = document.getElementById('factsList');
+ if (factsList) factsList.innerHTML = data.facts.map(f => `<article class="fact-card"><span class="tag">${esc(f.category)}</span><h3>DID YOU KNOW?</h3><p>${esc(f.text)}</p><div class="fact-source"><b>Source:</b> ${esc(f.source)}<br><b>Submitted by:</b> ${esc(f.user)}</div></article>`).join('') || '<div class="empty">No facts yet.</div>';
 }
 
-// FETCH LIVE UPDATES FROM SUPABASE
 async function renderUpdates() {
  const { data: updates, error } = await supabase.from('updates').select('*').eq('status', 'approved').order('created_at', { ascending: false });
  if (error) { console.error('Error loading updates:', error); return; }
- data.updates = updates.map(u => ({ id: u.id, title: u.title, body: u.body, date: u.date, user: u.user_name, status: u.status }));
- document.getElementById('updatesList').innerHTML = data.updates.length ? data.updates.map(u => `<article class="update"><small>${esc(u.date)}</small><h2>${esc(u.title)}</h2><p>${esc(u.body)}</p><small>Posted by ${esc(u.user || '@directionadmin')}</small></article>`).join('') : '<div class="empty">No public updates yet.</div>';
+ data.updates = (updates || []).map(u => ({ id: u.id, title: u.title, body: u.body, date: u.date, user: u.user_name, status: u.status }));
+ const updatesList = document.getElementById('updatesList');
+ if (updatesList) updatesList.innerHTML = data.updates.length ? data.updates.map(u => `<article class="update"><small>${esc(u.date)}</small><h2>${esc(u.title)}</h2><p>${esc(u.body)}</p><small>Posted by ${esc(u.user || '@directionadmin')}</small></article>`).join('') : '<div class="empty">No public updates yet.</div>';
 }
 
-// FORM SUBMISSIONS WITH SUPABASE + STORAGE
 function renderSubmit() {
- const box = document.getElementById('submitArea'), u = current();
+ const box = document.getElementById('submitArea');
+ if (!box) return;
+ const u = current();
  if (!u) {
   box.innerHTML = '<div class="submit-box"><h2>JOIN FIRST</h2><p>Create an account so the site knows which username to attach to your contribution.</p><a class="btn red" href="#signup">SIGN UP</a> <a class="btn white" href="#login">LOG IN</a></div>';
   return;
  }
  box.innerHTML = `<div class="submit-box"><form id="submissionForm"><label>Category<select id="category"><option>One Direction</option><option>Harry</option><option>Louis</option><option>Liam</option><option>Zayn</option><option>Niall</option></select></label><label>Your post<textarea id="message" maxlength="3000" placeholder="Memory, joke, story, fan message..."></textarea></label><label>Add one picture or video <input id="media" type="file" accept="image/*,video/*"></label><div id="preview"></div><div id="creditWrap" class="conditional-media"><label>Credits / source for your media<input id="credit" maxlength="500" placeholder="e.g. My own photo / @creator / source URL"></label><label class="check-label"><input id="rightsCheck" type="checkbox"> I have the right to share this content.</label></div><button class="btn red">SEND TO THE FAN WALL →</button></form></div>`;
- 
- document.getElementById('submissionForm').onsubmit = submitPost;
+ const form = document.getElementById('submissionForm');
+ if (form) form.onsubmit = submitPost;
 }
 
 async function submitPost(e) {
@@ -278,55 +280,68 @@ async function submitPost(e) {
  else { toast('Submitted! Pending admin approval.'); location.hash = 'community'; }
 }
 
-document.getElementById('factForm').onsubmit = async (e) => {
- e.preventDefault();
- const u = current();
- if (!u) return toast('Log in first.');
- const { error } = await supabase.from('facts').insert([{
-  user_name: '@' + u.username,
-  category: document.getElementById('factCategory').value,
-  text: document.getElementById('factText').value.trim(),
-  source: document.getElementById('factSource').value.trim(),
-  status: 'pending',
-  date: new Date().toISOString().slice(0, 10)
- }]);
- if (error) toast('Error: ' + error.message);
- else { toast('Fact sent to admins!'); e.target.reset(); location.hash = 'community'; }
-};
+const factForm = document.getElementById('factForm');
+if (factForm) {
+ factForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const u = current();
+  if (!u) return toast('Log in first.');
+  const { error } = await supabase.from('facts').insert([{
+   user_name: '@' + u.username,
+   category: document.getElementById('factCategory').value,
+   text: document.getElementById('factText').value.trim(),
+   source: document.getElementById('factSource').value.trim(),
+   status: 'pending',
+   date: new Date().toISOString().slice(0, 10)
+  }]);
+  if (error) toast('Error: ' + error.message);
+  else { toast('Fact sent to admins!'); e.target.reset(); location.hash = 'community'; }
+ };
+}
 
-document.getElementById('updateSubmitForm').onsubmit = async (e) => {
- e.preventDefault();
- const u = current();
- if (!u) return toast('Log in first.');
- const { error } = await supabase.from('updates').insert([{
-  title: document.getElementById('updateSubmitTitle').value.trim(),
-  body: document.getElementById('updateSubmitBody').value.trim(),
-  user_name: '@' + u.username,
-  status: 'pending',
-  date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
- }]);
- if (error) toast('Error: ' + error.message);
- else { toast('Update sent to news desk!'); e.target.reset(); location.hash = 'community'; }
-};
+const updateSubmitForm = document.getElementById('updateSubmitForm');
+if (updateSubmitForm) {
+ updateSubmitForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const u = current();
+  if (!u) return toast('Log in first.');
+  const { error } = await supabase.from('updates').insert([{
+   title: document.getElementById('updateSubmitTitle').value.trim(),
+   body: document.getElementById('updateSubmitBody').value.trim(),
+   user_name: '@' + u.username,
+   status: 'pending',
+   date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  }]);
+  if (error) toast('Error: ' + error.message);
+  else { toast('Update sent to news desk!'); e.target.reset(); location.hash = 'community'; }
+ };
+}
 
-// USER AUTHENTICATION
-document.getElementById('signupForm').onsubmit = e => {
- e.preventDefault();
- const username = document.getElementById('signupUsername').value.trim().replace(/^@/,''), email = document.getElementById('signupEmail').value.trim().toLowerCase(), password = document.getElementById('signupPassword').value;
- if (data.users.some(u => u.email === email || u.username.toLowerCase() === username.toLowerCase())) return toast('Username or email already taken.');
- const u = { id: uid('u'), username, email, password, admin: false, joined: new Date().getFullYear(), stats: { gamesPlayed: 0, quizPlays: 0 } };
- data.users.push(u); data.currentUser = u.id; save(); toast('Welcome to OUR DIRECTION!'); location.hash = 'community';
-};
+const signupForm = document.getElementById('signupForm');
+if (signupForm) {
+ signupForm.onsubmit = e => {
+  e.preventDefault();
+  const username = document.getElementById('signupUsername').value.trim().replace(/^@/,''), email = document.getElementById('signupEmail').value.trim().toLowerCase(), password = document.getElementById('signupPassword').value;
+  if (data.users.some(u => u.email === email || u.username.toLowerCase() === username.toLowerCase())) return toast('Username or email already taken.');
+  const u = { id: uid('u'), username, email, password, admin: false, joined: new Date().getFullYear(), stats: { gamesPlayed: 0, quizPlays: 0 } };
+  data.users.push(u); data.currentUser = u.id; save(); toast('Welcome to OUR DIRECTION!'); location.hash = 'community';
+ };
+}
 
-document.getElementById('loginForm').onsubmit = e => {
- e.preventDefault();
- const email = document.getElementById('loginEmail').value.trim().toLowerCase(), password = document.getElementById('loginPassword').value, u = data.users.find(x => x.email === email && x.password === password);
- if (!u) return toast('Incorrect email or password.');
- data.currentUser = u.id; save(); toast('Welcome back!'); location.hash = 'community';
-};
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+ loginForm.onsubmit = e => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase(), password = document.getElementById('loginPassword').value, u = data.users.find(x => x.email === email && x.password === password);
+  if (!u) return toast('Incorrect email or password.');
+  data.currentUser = u.id; save(); toast('Welcome back!'); location.hash = 'community';
+ };
+}
 
 function pollMarkup(target) {
- const box = document.getElementById(target), p = data.poll, total = Object.values(p.votes || {}).reduce((a, b) => a + Number(b || 0), 0);
+ const box = document.getElementById(target);
+ if (!box) return;
+ const p = data.poll, total = Object.values(p.votes || {}).reduce((a, b) => a + Number(b || 0), 0);
  box.innerHTML = `<div class="poll-question">${esc(p.question)}</div><div class="poll-options">${p.options.map(o => { const n = Number(p.votes[o] || 0), pct = total ? Math.round(n / total * 100) : 0; return `<button class="poll-option" data-opt="${esc(o)}"><span>${esc(o)}</span><b>${pct}%</b><span class="bar"><i style="width:${pct}%"></i></span></button>`; }).join('')}</div><small>${total} votes so far</small>`;
  box.querySelectorAll('.poll-option').forEach(b => b.onclick = () => {
   const u = current();
@@ -341,22 +356,30 @@ function renderPoll() { pollMarkup('pollArea'); }
 function renderHomePollFact() { pollMarkup('homePoll'); }
 
 function renderStats() {
- document.getElementById('statUsers').textContent = data.users.length;
- document.getElementById('statMessages').textContent = data.submissions.length;
- document.getElementById('statQuizzes').textContent = data.quizzes.length;
- document.getElementById('statGames').textContent = data.gamesPlayed || 0;
+ const u = document.getElementById('statUsers');
+ const m = document.getElementById('statMessages');
+ const q = document.getElementById('statQuizzes');
+ const g = document.getElementById('statGames');
+ if (u) u.textContent = data.users.length;
+ if (m) m.textContent = data.submissions.length;
+ if (q) q.textContent = data.quizzes.length;
+ if (g) g.textContent = data.gamesPlayed || 0;
 }
 
 function renderCommunity() {
- const box = document.getElementById('communityArea'), u = current();
+ const box = document.getElementById('communityArea');
+ if (!box) return;
+ const u = current();
  if (!u) { box.innerHTML = '<div class="community-landing section"><article class="home-card"><h2>JOIN THE COMMUNITY</h2><a class="btn red" href="#signup">SIGN UP</a> <a class="btn white" href="#login">LOG IN</a></article></div>'; return; }
  box.innerHTML = `<div class="profile-layout section"><aside class="profile-card"><h2>@${esc(u.username)}</h2></aside><div class="profile-main"><h2>WELCOME BACK</h2></div></div>`;
 }
 
 function renderAdmin() {
- const box = document.getElementById('adminArea'), u = current();
+ const box = document.getElementById('adminArea');
+ if (!box) return;
+ const u = current();
  if (!u?.admin) { box.innerHTML = '<div class="empty">This area is private.</div>'; return; }
- box.innerHTML = `<div class="admin-box"><h2>ADMIN CONTROL ROOM</h2><p>You can manage posts, facts, and updates directly in your Supabase Dashboard table editor!</p></div>`;
+ box.innerHTML = `<div class="admin-box"><h2>ADMIN CONTROL ROOM</h2><p>Manage posts, facts, and updates directly in your Supabase Dashboard table editor!</p></div>`;
 }
 
 function render() {
