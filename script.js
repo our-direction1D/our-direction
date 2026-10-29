@@ -395,4 +395,6 @@ function render() {
  renderAdmin();
 }
 
-go();
+// Run when the page loads and whenever the hash changes
+window.addEventListener('DOMContentLoaded', go);
+window.addEventListener('hashchange', go);
