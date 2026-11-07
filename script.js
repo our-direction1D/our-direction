@@ -1,11 +1,11 @@
-// Initialize Supabase safely (prevents 'already been declared' errors)
+// Initialize Supabase safely
 const SUPABASE_URL = 'https://sqtvpilfhyssmombmsnv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nnZHtn1NxcNSJVzb5O6-qg_g0MQb8R_';
 
 if (!window.mySupabaseClient) {
   window.mySupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
-
+const supabase = window.mySupabaseClient;
 
 const KEY = 'ourDirectionV8';
 const ADMIN_EMAIL = 'admin@ourdirection.test';
@@ -153,8 +153,29 @@ function bindLikes() {
 }
 
 function go() {
- const id = location.hash.slice(1) || 'home';
- document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === id));
+ const hash = location.hash.slice(1) || 'home';
+ const pages = document.querySelectorAll('.page');
+ 
+ let found = false;
+ pages.forEach(p => {
+  if (p.id === hash) {
+   p.classList.add('active');
+   p.style.display = 'block';
+   found = true;
+  } else {
+   p.classList.remove('active');
+   p.style.display = 'none';
+  }
+ });
+
+ if (!found && pages.length > 0) {
+  const homeEl = document.getElementById('home');
+  if (homeEl) {
+   homeEl.classList.add('active');
+   homeEl.style.display = 'block';
+  }
+ }
+
  render();
  window.scrollTo(0, 0);
  const nav = document.getElementById('nav');
@@ -532,7 +553,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (i >= 0 && data.submissions[i].user === '@' + u.username) {
      data.submissions.splice(i, 1);
      save();
-     toast('Your post was deleted.');
+     toast('Your post was deleted.'); 
      findMineBtn.click();
      renderWall();
     }
@@ -542,33 +563,5 @@ window.addEventListener('DOMContentLoaded', () => {
  }
 
  // Trigger immediate site navigation setup once HTML is fully parsed
-function go() {
- const hash = location.hash.slice(1) || 'home';
- const pages = document.querySelectorAll('.page');
- 
- let found = false;
- pages.forEach(p => {
-  if (p.id === hash) {
-   p.classList.add('active');
-   p.style.display = 'block';
-   found = true;
-  } else {
-   p.classList.remove('active');
-   p.style.display = 'none';
-  }
- });
-
- // Fallback if hash doesn't match any page
- if (!found && pages.length > 0) {
-  document.getElementById('home')?.classList.add('active');
-  if (document.getElementById('home')) document.getElementById('home').style.display = 'block';
- }
-
- render();
- window.scrollTo(0, 0);
-}
-
-window.addEventListener('hashchange', go);
-window.addEventListener('DOMContentLoaded', () => {
  go();
-});
+});aaa
