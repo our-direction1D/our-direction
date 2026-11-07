@@ -1,7 +1,11 @@
-// Initialize Supabase
+// Initialize Supabase safely (prevents 'already been declared' errors)
 const SUPABASE_URL = 'https://sqtvpilfhyssmombmsnv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nnZHtn1NxcNSJVzb5O6-qg_g0MQb8R_';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+if (!window.mySupabaseClient) {
+  window.mySupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
 
 const KEY = 'ourDirectionV8';
 const ADMIN_EMAIL = 'admin@ourdirection.test';
