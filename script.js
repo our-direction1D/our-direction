@@ -538,5 +538,33 @@ window.addEventListener('DOMContentLoaded', () => {
  }
 
  // Trigger immediate site navigation setup once HTML is fully parsed
+function go() {
+ const hash = location.hash.slice(1) || 'home';
+ const pages = document.querySelectorAll('.page');
+ 
+ let found = false;
+ pages.forEach(p => {
+  if (p.id === hash) {
+   p.classList.add('active');
+   p.style.display = 'block';
+   found = true;
+  } else {
+   p.classList.remove('active');
+   p.style.display = 'none';
+  }
+ });
+
+ // Fallback if hash doesn't match any page
+ if (!found && pages.length > 0) {
+  document.getElementById('home')?.classList.add('active');
+  if (document.getElementById('home')) document.getElementById('home').style.display = 'block';
+ }
+
+ render();
+ window.scrollTo(0, 0);
+}
+
+window.addEventListener('hashchange', go);
+window.addEventListener('DOMContentLoaded', () => {
  go();
 });
